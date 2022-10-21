@@ -15,7 +15,7 @@ import sys
 import os
 import subprocess
 import random
-import multiprocessing
+import threading
 import platform
 import logging
 import http.client
@@ -140,17 +140,19 @@ class WebWeixin(object):
             self.autoOpen = config['autoOpen']
 
     def getUUID(self):
-        url = 'https://login.weixin.qq.com/jslogin'
+        url = 'https://login.wx2.qq.com/jslogin'
         params = {
             'appid': self.appid,
+            'redirect_uri': 'https://wx2.qq.com/cgi-bin/mmwebwx-bin/webwxnewloginpage?mod=desktop',
             'fun': 'new',
             'lang': self.lang,
-            '_': int(time.time()),
+            '_': int(time.time())
         }
         #r = requests.get(url=url, params=params)
         #r.encoding = 'utf-8'
         #data = r.text
         data = self._post(url, params, False).decode("utf-8")
+        # data = self._post(url, params, False).decode("utf-8")
         if data == '':
             return False
         regx = r'window.QRLogin.code = (\d+); window.QRLogin.uuid = "(\S+?)"'
@@ -239,7 +241,8 @@ class WebWeixin(object):
         return False
 
     def login(self):
-        data = self._get(self.redirect_uri)
+        data = self._get(self.redirect_uri, api='login')
+        logging.debug(data)
         if data == '':
             return False
         doc = xml.dom.minidom.parseString(data)
@@ -1012,9 +1015,11 @@ class WebWeixin(object):
             import _thread
             _thread.start_new_thread(self.listenMsgMode())
         else:
-            listenProcess = multiprocessing.Process(target=self.listenMsgMode)
+            # listenProcess = multiprocessing.Process(target=self.listenMsgMode)
+            listenProcess = threading.Thread(target=self.listenMsgMode)
             listenProcess.start()
 
+        logging.debug('started')
         while True:
             text = input('')
             if text == 'quit':
@@ -1102,6 +1107,9 @@ class WebWeixin(object):
             request.add_header('Range', 'bytes=0-')
         if api == 'webwxgetvideo':
             request.add_header('Range', 'bytes=0-')
+        if api == 'login':
+            request.add_header('extspam', 'Go8FCIkFEokFCggwMDAwMDAwMRAGGvAESySibk50w5Wb3uTl2c2h64jVVrV7gNs06GFlWplHQbY/5FfiO++1yH4ykCyNPWKXmco+wfQzK5R98D3so7rJ5LmGFvBLjGceleySrc3SOf2Pc1gVehzJgODeS0lDL3/I/0S2SSE98YgKleq6Uqx6ndTy9yaL9qFxJL7eiA/R3SEfTaW1SBoSITIu+EEkXff+Pv8NHOk7N57rcGk1w0ZzRrQDkXTOXFN2iHYIzAAZPIOY45Lsh+A4slpgnDiaOvRtlQYCt97nmPLuTipOJ8Qc5pM7ZsOsAPPrCQL7nK0I7aPrFDF0q4ziUUKettzW8MrAaiVfmbD1/VkmLNVqqZVvBCtRblXb5FHmtS8FxnqCzYP4WFvz3T0TcrOqwLX1M/DQvcHaGGw0B0y4bZMs7lVScGBFxMj3vbFi2SRKbKhaitxHfYHAOAa0X7/MSS0RNAjdwoyGHeOepXOKY+h3iHeqCvgOH6LOifdHf/1aaZNwSkGotYnYScW8Yx63LnSwba7+hESrtPa/huRmB9KWvMCKbDThL/nne14hnL277EDCSocPu3rOSYjuB9gKSOdVmWsj9Dxb/iZIe+S6AiG29Esm+/eUacSba0k8wn5HhHg9d4tIcixrxveflc8vi2/wNQGVFNsGO6tB5WF0xf/plngOvQ1/ivGV/C1Qpdhzznh0ExAVJ6dwzNg7qIEBaw+BzTJTUuRcPk92Sn6QDn2Pu3mpONaEumacjW4w6ipPnPw+g2TfywJjeEcpSZaP4Q3YV5HG8D6UjWA4GSkBKculWpdCMadx0usMomsSS/74QgpYqcPkmamB4nVv1JxczYITIqItIKjD35IGKAUwAA==')
+            request.add_header('client-version', '2.0.0')
         try:
             response = urllib.request.urlopen(request, timeout=timeout) if timeout else urllib.request.urlopen(request)
             if api == 'webwxgetvoice' or api == 'webwxgetvideo':
